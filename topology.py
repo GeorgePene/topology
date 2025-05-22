@@ -2,6 +2,7 @@ import os
 import csv
 import re
 import ipaddress
+import xml.etree.ElementTree as ET
 import networkx as nx
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
@@ -32,8 +33,26 @@ def get_private_ips_from_csv(path):
     return private_ips
 
 
-def gather_all_ips(folder_path):
-    subnet_groups = {}  # subnet -> list of IPs
+def get_private_ips_from_nmap_xml(xml_path):
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    private_ips = set()
+
+    for host in root.findall("host"):
+        for address in host.findall("address"):
+            ip = address.get("addr")
+            try:
+                ip_obj = ipaddress.IPv4Address(ip)
+                if ip_obj.is_private:
+                    private_ips.add(ip)
+            except ValueError:
+                continue
+
+    return private_ips
+
+
+def gather_ips_from_csv_folder(folder_path):
+    subnet_groups = {}
 
     for filename in os.listdir(folder_path):
         if filename.endswith(".csv"):
@@ -44,6 +63,21 @@ def gather_all_ips(folder_path):
                 subnet_groups.setdefault(subnet, set()).add(ip)
 
     return subnet_groups
+
+
+def gather_ips_from_nmap_folder(folder_path):
+    subnet_groups = {}
+
+    for filename in os.listdir(folder_path):
+        if filename.endswith(".xml"):
+            xml_path = os.path.join(folder_path, filename)
+            ips = get_private_ips_from_nmap_xml(xml_path)
+            for ip in ips:
+                subnet = ".".join(ip.split('.')[:3]) + ".0/24"
+                subnet_groups.setdefault(subnet, set()).add(ip)
+
+    return subnet_groups
+
 
 def build_devices_and_connections(subnet_groups):
     devices = []
@@ -58,31 +92,26 @@ def build_devices_and_connections(subnet_groups):
 
         gateway = subnet.replace('0/24', '1')
         if gateway not in ips:
-            ips.add(gateway)  # Add gateway if not found
+            ips.add(gateway)
 
         for ip in ips:
             devices.append({"ip": ip, "subnet": subnet, "color": color})
             all_ips.add(ip)
 
-        # Link devices to gateway
         for ip in ips:
             if ip == gateway:
-                connections.append(("0.0.0.0", ip))  # root -> gateway
+                connections.append(("0.0.0.0", ip))
             else:
                 connections.append((gateway, ip))
 
-    # Add root device if needed
     devices.insert(0, {"ip": "0.0.0.0", "subnet": "Internet", "color": "#bbbbbb"})
     return devices, connections
 
 
 def draw_topology(devices, connections):
     import pygraphviz as pgv
-    import networkx as nx
     from collections import defaultdict
-    import matplotlib.colors as mcolors
 
-    # Build graph
     G = nx.DiGraph()
     for device in devices:
         G.add_node(device["ip"])
@@ -94,7 +123,6 @@ def draw_topology(devices, connections):
         'dpi': '300'
     })
 
-    # Assign soft background colors to subnets
     subnet_nodes = defaultdict(list)
     subnet_colors = {}
     pastel_colors = [
@@ -103,7 +131,7 @@ def draw_topology(devices, connections):
     ]
 
     if not pastel_colors:
-        pastel_colors = ['#f0f8ff', '#e6f2ff', '#f5f5dc', '#f0fff0', '#fffaf0', '#fdf5e6']  # Fallbacks
+        pastel_colors = ['#f0f8ff', '#e6f2ff', '#f5f5dc', '#f0fff0', '#fffaf0', '#fdf5e6']
 
     for device in devices:
         subnet = device.get("subnet", "unknown")
@@ -120,7 +148,7 @@ def draw_topology(devices, connections):
             color="gray",
             fillcolor=color
         )
-       
+
         for device in dev_list:
             ip = device["ip"]
             image = "images/router.png" if ip == "0.0.0.0" or ip.endswith(".1") else "images/pc.png"
@@ -130,13 +158,12 @@ def draw_topology(devices, connections):
 </TABLE>>'''
             sg.add_node(ip, shape="none", label=label)
 
-    # Add edges manually
     for src, dst in connections:
         A.add_edge(src, dst)
 
     A.layout(prog="dot")
     A.draw("network_topology.png")
-    print("Saved diagram as 'network_topology.png' with colored subnet groups and styled icons")
+    print("✅ Diagram saved as 'network_topology.png'")
 
 
 # === MAIN ENTRYPOINT ===
@@ -144,11 +171,21 @@ if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
 
+    print("Choose scan source:")
+    print("1. OpenVAS CSV (.csv files)")
+    print("2. Nmap -sn XML (.xml files)")
+    choice = input("Enter choice [1 or 2]: ").strip()
+
     folder = os.getenv("SCAN_FOLDER")
     if not folder or not os.path.exists(folder):
-        raise ValueError("SCAN_FOLDER is not set correctly in .env or the folder does not exist.")
+        raise ValueError("❌ SCAN_FOLDER is not set or doesn't exist.")
 
-    subnet_groups = gather_all_ips(folder)
+    if choice == "1":
+        subnet_groups = gather_ips_from_csv_folder(folder)
+    elif choice == "2":
+        subnet_groups = gather_ips_from_nmap_folder(folder)
+    else:
+        raise ValueError("❌ Invalid choice. Use 1 or 2.")
+
     devices, connections = build_devices_and_connections(subnet_groups)
     draw_topology(devices, connections)
-
