@@ -6,7 +6,7 @@ It can use either *CSV OpenVAS scan files* or *XML nmap -sn scan files*
 ![Example of topology](images/topology_example.png)
 
 ## User Guide Manual  
-1. Install Python and venv `sudo apt install python3 python3-venv python3-pip -y`
+1. Install Python, venv, nmap and git `sudo apt install python3 python3-venv python3-pip nmap git -y`
 2. Git clone this repository `git clone https://github.com/GeorgePene/topology-generator.git`
 3. Move into the repository's cloned directory `cd topology-generator` 
 4. Create a virtual environment 
