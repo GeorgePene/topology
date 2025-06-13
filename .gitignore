@@ -3,4 +3,9 @@ venv/
 
 # Ignore IDE configs
 .idea/
-
+.env
+*network_topology.png
+*__pycache__
+.DS_Store
+reports
+reports/*
