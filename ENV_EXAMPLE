@@ -1,3 +1,4 @@
-SCAN_FOLDER=./reports
+# Put this in .env at the src of the program
+SCAN_FOLDER=.
 
 # Enter the absolute path of the directory in which the CSV or XML files are located --> ex. /home/user/directory
