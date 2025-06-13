@@ -14,7 +14,8 @@ It can use either *CSV OpenVAS scan files* or *XML nmap -sn scan files*
    2. `source venv/bin/activate`
 5. Install Required Python Packages
    1. `sudo apt install graphviz graphviz-dev pkg-config -y`
-   2. `pip install matplotlib networkx pygraphviz python-dotenv`
-6. In the *.env* file, specify the absolute path of the directory in which *CSV* or *XML* scan report files are located
-7. Run the program `python topology.py`
+   2. `pip install matplotlib networkx pygraphviz python-dotenv` OR `pip install -r requirements.txt`
+6. Copy the *ENV_EXAMPLE* file with the name *.env*
+6. In this new *.env* file, specify the absolute path of the directory in which *CSV* or *XML* scan report files are located
+7. Run the program `python main.py`
 8. Exit virtual environment `deactivate`
